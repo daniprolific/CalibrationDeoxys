@@ -3,47 +3,51 @@
 import streamlit as st
 import pandas as pd
 import time
-from backend_spec import RobotController
+from backend_final import RobotController
 import base64
 
 #----------------------HEADER---------------------------
 
-# Function to encode image as base64
 def get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-# Convert logo to base64
-image_base64 = get_base64_image("header.png")
+image_base64 = get_base64_image("header3.png")
 
-# Inject custom CSS for a fixed header with the company logo in the center-right
+# Modified header section in app.py
 st.markdown(f"""
     <style>
         .header-container {{
             position: fixed;
-            top: 20;
+            top: 0;
             left: 0;
+            right: 0;
             width: 100%;
+            height: 20%;  /* Increased height */
             background-color: white;
-            padding: 0px;  /* Reduce padding to make it thinner */
-            height: 100px;  /* Set a fixed height to make the header less thick */
-            z-index: 300;
-            text-align: center;
+            z-index: 9999;  /* Maximum z-index */
             border-bottom: 2px solid #ddd;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end; /* Align content to the right */
+            margin: 0;
+            padding: 0;
             overflow: hidden;
         }}
         .header-container img {{
-            max-width: none;
             width: 100%;
             height: 100%;
-            object-fit: cover;  /* Ensures the image covers the area */
-            object-position: right center; /* Focuses on the center-right part */
+            object-fit: cover;
+            object-position: center right;
+            margin: 0;
+            padding: 0;
         }}
         .content {{
-            padding-top: 50px; /* Prevents content overlap with header */
+            margin-top: 50px;  /* Match header height */
+            position: relative;
+            z-index: 0;
+        }}
+        /* Remove Streamlit's default padding */
+        .main .block-container {{
+            padding: 0;
+            margin: 0;
         }}
     </style>
     <div class="header-container">
@@ -51,13 +55,11 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Add padding to prevent content overlap
 st.markdown('<div class="content">', unsafe_allow_html=True)
 
 #--------------------------------------------------------------
 
 # Add padding to prevent content overlap
-st.markdown('<div class="content">', unsafe_allow_html=True)
 st.title("Robot Control Panel 🤖")
 
 # Initialize Robot Controller
@@ -101,6 +103,6 @@ if data:
 
     # Plot the data
     st.subheader("Power Measurements Visualization")
-    st.line_chart(df.set_index("well_id")[["Power"]]) 
+    st.line_chart(df.set_index("Well ID")[["Power (µW/(cm²)", "Standard deviation"]]) 
 else:
     st.write("No data available. Run Calibration first!")

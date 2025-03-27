@@ -11,7 +11,7 @@ COLOR_OPTIONS = {
 MAX_INTENSITY = 4095
 
 # Device credentials
-name_device = 'D0U2'
+name_device = 'D0U2_old'
 access_token = 'f7b398d48420fa9c6d8c7e8e18a500b968e0ff09'
 
 # Initialize Pikachu device
@@ -27,7 +27,7 @@ else:
 # User inputs
 color = st.selectbox("Select LED Color", list(COLOR_OPTIONS.keys()))
 intensity = st.slider("Select Intensity", 0, MAX_INTENSITY, MAX_INTENSITY)
-duration = st.slider("Select Duration (seconds)", 1, 30, 6)
+duration = st.slider("Select Duration (seconds)", 1, 60, 6)
 
 if st.button("Start Illumination"):
     status = pikachu.SetSimpleIlluminationPlan(

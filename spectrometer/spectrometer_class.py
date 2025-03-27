@@ -4,7 +4,7 @@ import time
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-from .avaspec.avaspec import *
+from avaspec.avaspec import *  #CHANGE TO RELATIVE PATH IF I WANT TO RUN THE APP
 import numpy as np
 
 class Avantes:
@@ -20,22 +20,21 @@ class Avantes:
 
     def initialize_device(self):
         AVS_Init(0)
+
         if AVS_GetNrOfDevices() == 0:
             raise RuntimeError("No spectrometer found")
-        
-        # devices = AVS_GetList(AVS_GetNrOfDevices())
-        # globals.dev_handle = AVS_Activate(devices[0])
+    
         mylist = AvsIdentityType * 1
         mylist = AVS_GetList(1)
-        serienummer = str(mylist[0].SerialNumber.decode("utf-8"))
-        print("Found Serialnumber: " + serienummer)
+        serienumber = str(mylist[0].SerialNumber.decode("utf-8"))
+        print("Found Serialnumber: " + serienumber)
         self.dev_handle = AVS_Activate(mylist[0])
         
         dev_params = AVS_GetParameter(self.dev_handle, 63484)
         self.pixels = dev_params.m_Detector_m_NrPixels
         self.wavelength = AVS_GetLambda(self.dev_handle)
 
-    def perform_measurement(self, integration_time=500.0, averages=1, scans=2):
+    def perform_measurement(self, integration_time=40.0, averages=1, scans=1):
         meas_config = MeasConfigType(
             m_StartPixel=0,
             m_StopPixel=self.pixels - 1,
@@ -46,6 +45,7 @@ class Avantes:
             m_CorDynDark_m_Enable = 1
         )
         
+        AVS_UseHighResAdc(self.dev_handle, True)  # Enable high-res ADC
         AVS_PrepareMeasure(self.dev_handle, meas_config)
         self.NrScanned = 0
         
@@ -64,8 +64,6 @@ class Avantes:
         self.wavelengths = [self.wavelength[i] for i in range(self.pixels)]
         self.spectral_data = [self.spectraldata[i] for i in range(self.pixels)]
 
-        # AVS_Deactivate(self.dev_handle)
-        # self.app.quit()
     
     def disconnect(self):
         AVS_Deactivate(self.dev_handle)
@@ -81,7 +79,7 @@ class Avantes:
             spectral_data (list or numpy array): The measured luminosity values ((mW/cm^2)/nm).
         
         Returns:
-            float: The total integrated power in mW/cm^2.
+            float: The total integrated power.
         """
         return np.trapz(self.spectral_data, self.wavelengths)
 
@@ -102,8 +100,10 @@ if __name__ == "__main__":
     spectrometer.perform_measurement()
     spectrometer.plot_results()
     power = spectrometer.calculate_power()
+    spectrometer.disconnect()
 
-
-    print(spectrometer.spectral_data[:10])
-    print(spectrometer.wavelengths[:10])
-    print('power:',power)
+    print('-------INITIAL MEASUREMENTS---------')
+    print('Intensity: ',len(spectrometer.spectral_data))
+    np.save("DarkData.npy", spectrometer.spectral_data)
+    #print('Wavelength (nm): ',spectrometer.wavelengths)
+   

@@ -72,7 +72,7 @@ COLOR_OPTIONS = {
     "Infrared (820nm)": 820
 }
 MAX_INTENSITY = 4095
-name_device = 'D0U2'
+name_device = 'D0U2_old'
 access_token = 'f7b398d48420fa9c6d8c7e8e18a500b968e0ff09'
 pikachu = Pikachu(name_device, access_token)
 
@@ -145,6 +145,6 @@ if data:
     df = pd.DataFrame(data)
     st.dataframe(df)
     st.subheader("Power Measurements Visualization")
-    st.line_chart(df.set_index("well_id")["Power"]) 
+    st.line_chart(df.set_index("well_id")["Power (µW/(cm²)"]) 
 else:
     st.write("No data available. Run Calibration first!")
