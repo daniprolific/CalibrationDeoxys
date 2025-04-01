@@ -3,9 +3,9 @@
 import streamlit as st
 import pandas as pd
 import time
-from backend_final import RobotController
+from backend_FINAL import RobotController
 import base64
-
+from airtable.airtable_class import AirtableCalibrationUploader
 #----------------------HEADER---------------------------
 
 def get_base64_image(image_path):
@@ -98,11 +98,11 @@ st.subheader("Measurement Data")
 data = robot.get_data()
 
 if data:
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(data[1:])
     st.dataframe(df)  # Display the table
 
     # Plot the data
     st.subheader("Power Measurements Visualization")
-    st.line_chart(df.set_index("Well ID")[["Power (µW/(cm²)", "Standard deviation"]]) 
+    st.line_chart(df.set_index("WellID")[["MaxPD", "SDMaxPD"]]) 
 else:
     st.write("No data available. Run Calibration first!")

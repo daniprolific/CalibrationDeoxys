@@ -32,7 +32,7 @@ class RobotController:
         
         # ROBOT DATA
         self.x_leds = 1
-        self.y_leds = 3
+        self.y_leds = 2
         self.distance_leds = 9
         self.linear_velocity = 300  # mm/s
         self.linear_acceleration = 500  # mm/s²
@@ -62,13 +62,12 @@ class RobotController:
         letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] 
         numbers = list(range(12, 0, -1))  # [12, 11, ..., 1]
         well = {i + 1: f"{letters[i % 8]}{numbers[i // 8]}" for i in range(96)}
-
-        self.well_adu = self.MAX_INTENSITY
-        self.data.append({'Wavelength': self.well_adu})
+        
 
         for x in range(self.x_leds):
             for y in range(self.y_leds):
 
+                self.well_adu = self.MAX_INTENSITY
                 self.SetGroupADU(pikachu, well[self.well_id], self.BLUE_465NM, self.well_adu)
                 # MOVE ROBOT
                 self.robot.movej(self.robot.compute_inverse_kinematics([ 
@@ -90,8 +89,8 @@ class RobotController:
 
                 time.sleep(0.1)
                
-                info = {'WellID': well[self.well_id],'MaxPD': mean_power, 'SDMaxPD': std_dev, 
-                        'nMaxPDMeasurements': self.num_measurements}
+                info = {'Well ID': self.well_id, 'Well': well[self.well_id], 'Well ADU': self.well_adu, 'Power (µW/(cm²)': mean_power, 'Standard deviation': std_dev, 
+                        'Number measurements': self.num_measurements, 'Integration time': self.integration_time, 'Min wavelength':self.min_wavelength, 'Max wavelength':self.max_wavelength}
                 self.well_id += 1
                 self.data.append(info)
 

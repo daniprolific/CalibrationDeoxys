@@ -3,7 +3,7 @@ import time
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-from .avaspec.avaspec import *
+from avaspec.avaspec import *
 import numpy as np
 
 
@@ -149,10 +149,9 @@ class Avantes:
 
 if __name__ == "__main__":
     spectrometer = Avantes()
-
     spectrometer.initialize_device()
-    power_list = spectrometer.measure_power(5,40,300,800)
-    print(power_list)
+    power_list = spectrometer.measure_power(5,0.1,300,800)
+    print('Power value:',power_list)
     spectrometer.disconnect()
 
 
