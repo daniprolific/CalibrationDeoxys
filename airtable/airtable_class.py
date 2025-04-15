@@ -2,10 +2,10 @@
 import requests
 
 class AirtableCalibrationUploader:
-    def __init__(self, api_key, base_id, device_info):
+    def __init__(self, api_key, base_id, deoxys_info):
         self.API_KEY = api_key
         self.BASE_ID = base_id
-        self.device_info = device_info
+        self.deoxys_info = deoxys_info
         
     def _create_record(self, table_name, fields):
         """Internal method to create records"""
@@ -37,9 +37,9 @@ class AirtableCalibrationUploader:
         """
         # Create parent device calibration record
         dev_cal_record = self._create_record('DevCalibrations', {
-            'DevID': self.device_info['dev_id'],
-            'Operator': self.device_info['operator'],
-            'SensorSerial': self.device_info['sensor_serial']
+            'DevID': self.deoxys_info[0]['dev_id'],
+            'Operator': self.deoxys_info[2]['operator'],
+            'SensorSerial': self.deoxys_info[1]['sensor_serial']
         })
         
         if not dev_cal_record:

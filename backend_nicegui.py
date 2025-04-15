@@ -60,57 +60,6 @@ class RobotController:
         pikachu.UploadJSONString(plan.to_json())
         pikachu.StartIllumination()
 
-    def calibration_cloud(self):
-        pikachu = Pikachu(self.controller, self.access_token)
-        pikachu.Mute()
-        dev_id = pikachu.IlluminatorId()
-
-        # UPDATA DEOXYS_INFO
-        self.deoxys_info.append({'dev_id': dev_id})
-        self.deoxys_info.append({'sensor_serial': self.sensor_serial})
-
-
-        letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-        values = [f"{letter}{i}" for letter in letters for i in range(1, 13)]
-        well = {i: values[i] for i in range(len(values))}
-
-        self.well_adu = self.MAX_INTENSITY/2
-        self.wavelength = self.BLUE_465NM
-        self.measurements.append({'Wavelength': self.wavelength})
-
-        for y in range(self.y_leds):
-            for x in range(self.x_leds):
-                wellid = x + 12*y
-                self.SetGroupADU(pikachu, well[wellid], self.wavelength, self.well_adu)
-                # MOVE ROBOT
-                self.robot.movel([ 
-                    self.ini_position[0] + 9*x, # Change +/- according to direction
-                    self.ini_position[1] + 9*y, # Change +/- according to direction
-                    self.ini_position[2], 
-                    self.ini_position[3], 
-                    self.ini_position[4], 
-                    self.ini_position[5]
-                ] ,self.linear_velocity, self.linear_acceleration)
-                time.sleep(0.2)
-
-                # MEASURE SPECTROMETER
-                power_list = self.spectrometer.measure_power(self.num_measurements,self.integration_time,self.min_wavelength, self.max_wavelength)
-                mean_power = sum(power_list) / len(power_list)
-                std_dev = statistics.stdev(power_list)
-
-                pikachu.StopIllumination()
-
-                time.sleep(0.1)
-               
-                info = {'WellID': well[wellid],'MaxPD': mean_power, 'SDMaxPD': std_dev, 
-                        'nMaxPDMeasurements': self.num_measurements}
-
-                self.measurements.append(info)
-                print(self.measurements)
-
-        self.spectrometer.disconnect()
-        
-        return "Calibration Complete"
     
     def calibration_serial(self):
         pikachu = Pikachu("COM7")

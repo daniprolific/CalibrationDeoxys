@@ -70,39 +70,75 @@ col1, col2, col3, col4 = st.columns(4)
 
 # Buttons to control the robot in the same row
 with col1:
-    if st.button("Home Position"):
+    st.subheader("Home position")
+    if st.button("Go home position"):
         message = robot.home()
         st.success(message)
 
+# with col2:
+#     if st.button("Run Calibration Sequence"):
+#         with st.spinner("Running calibration... Please wait"):
+#             message = robot.calibration()
+#             st.success(message)
+#             message2 = robot.home()
+#             st.success(message2)
+
 with col2:
-    if st.button("Run Calibration Sequence"):
-        with st.spinner("Running calibration... Please wait"):
-            message = robot.calibration()
-            st.success(message)
-            message2 = robot.home()
-            st.success(message2)
+    st.subheader("Calibration sequence")
+    operator = st.text_input("Enter operator name", "", key="operator_name")
+    if st.button("Run calibration"):
+        if operator.strip():  # Ensure the user enters a name
+            with st.spinner("Running calibration... Please wait"):
+                message = robot.calibration_serial()
+                st.success(message)
+                message2 = robot.home()
+                st.success(message2)
+        else:
+            st.warning("Please enter operator name before running calibration.")
 
 with col3:
-    if st.button("Initial position"):
+    st.subheader("Check height")
+    if st.button("Go initial position"):
         with st.spinner("Moving initial position..."):
             message = robot.initial_position()
             st.success(message)
 
 with col4:
-    if st.button("Define position:"):
-        current_position = robot.get_position()
-        st.success(current_position)
+    st.subheader("Check corners")
+    corner = st.number_input("Enter corner number (1,2,3,4):",1,4)
+    if st.button("Go to corner"):
+        corner_check = robot.check_corners(corner)
+        st.success(corner_check)
+
+#Send data Airtable
+API_KEY = 'patzZ4bX6yRFRauUE.95471454dcbbd994fa31bf3f9292bb93f64d5b8a6f3113558e17e7873e8e76d4'
+BASE_ID = 'appjxfjyEex8LeD0Q'
+deoxys_info, measurements = robot.get_data()
+
 
 # Display collected data
 st.subheader("Measurement Data")
-data = robot.get_data()
 
-if data:
-    df = pd.DataFrame(data[1:])
+if measurements:
+    # deoxys_info.append({'operator': operator})
+
+    # airtable = AirtableCalibrationUploader(
+    #     api_key=API_KEY,
+    #     base_id=BASE_ID,
+    #     deoxys_info=deoxys_info
+    # )
+
+    # result = airtable.upload_measurements(measurements)
+
+    # if result:
+    #     st.success("Data uploaded successfully to Airtable!")
+    # else:
+    #     st.warning("Airtable upload failed")
+    df = pd.DataFrame(measurements[1:])
     st.dataframe(df)  # Display the table
 
     # Plot the data
     st.subheader("Power Measurements Visualization")
-    st.line_chart(df.set_index("WellID")[["MaxPD", "SDMaxPD"]]) 
+    st.line_chart(df.set_index("WellID")[["MaxPD"]]) 
 else:
     st.write("No data available. Run Calibration first!")

@@ -8,12 +8,12 @@ from pykachu.scripts.PikachuJSONBuilder import *
 COLOR_OPTIONS = {
     "Blue (465nm)": 465,
     "Red (630nm)": 630,
-    "Infrared (820nm)": 820
+    "Infrared (780nm)": 780
 }
 MAX_INTENSITY = 4095
 
 # Device credentials
-name_device = 'D0U2_old'
+name_device = 'CALI'
 access_token = 'f7b398d48420fa9c6d8c7e8e18a500b968e0ff09'
 
 # Initialize Pikachu device
@@ -42,7 +42,7 @@ group = st.text_input("Enter Well Coordinate (e.g., A12, B11):").strip().upper()
 
 def SetGroupADU(pikachu: Pikachu, group: str, color: int, adu: int):
     plan = IlluminationPlanJSON()
-    plan.set_plan_id(2) # Do not care about plan id
+    plan.set_plan_id(1) # Do not care about plan id
     plan.add_stage(duration=10000)
     plan.add_condition_to_last_stage(groups=[group], color=color, adu=adu)
     print(pikachu.UploadJSONString(plan.to_json()))
@@ -58,7 +58,8 @@ if st.button("Start Illumination"):
     elif group not in valid_coordinates:
         st.error("Invalid Well coordinate. Examples: A12, B11, H1")
         st.stop()
-    
+        
+    pikachu.StopIllumination()
     # Display "Illumination running" message
     illumination_status = st.empty()  # Create a placeholder
     illumination_status.success("Illumination RUNNING...")  
