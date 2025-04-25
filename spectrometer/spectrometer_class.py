@@ -5,6 +5,8 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from .avaspec.avaspec import *
 import numpy as np
+from scipy.optimize import curve_fit
+from scipy.integrate import simps
 
 
 class Avantes:
@@ -110,7 +112,7 @@ class Avantes:
         Inttimefactor = self.cal_integration_time / self.current_integration_time
 
         # DarkData is the count distribution with the ilumination off
-        DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData_30.npy")
+        DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData_20.npy")
         DarkData = DarkData_total[self.mask_wavelenght]
 
         ScopeData = self.spectraldata_masked
@@ -122,39 +124,6 @@ class Avantes:
 
         return power_dist
     
-    # def power_distribution(self):
-    #     """Convert raw counts (Count / nm) to µW/(cm²·nm) using this formula
-        
-    #     ScopeData(i)   =  Measured A/D Counts at pixel i (AVS_GetScopeData) 
-    #     DarkData(i)     =  Dark data at pixel i, saved in application software 
-    #     IntensityCal(i) =  m_Irradiance.m_IntensityCalib.m_aCalibConvers[i] 
-    #     CalInttime      =  m_Irradiance.m_IntensityCalib.m_CalInttime 
-    #     CurInttime      =  Integration time in measurement (used in the PrepareMeasurement structure) 
-
-    #     Inttimefactor = (CalInttime/CurInttime) 
-        
-    #     Irradiance Intensity =  ADCFactor * Inttimefactor * ((ScopeData(i) - DarkData(i))/IntensityCal(i)) """
-
-    #     ADCFactor = 0.25
-      
-    #     calib = np.ctypeslib.as_array(self.calibration_factors)
-    #     calib_convers = calib[0:2048]
-    #     IntensityCal = calib_convers[self.mask_wavelenght]
-
-    #     Inttimefactor = self.cal_integration_time / self.current_integration_time
-
-    #     # DarkData is the count distribution with the ilumination off
-    #     DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData.npy")
-    #     DarkData = DarkData_total[self.mask_wavelenght]
-
-    #     ScopeData = self.spectraldata_masked
-
-    #     power_dist = []
-     
-    #     for i in range (len(ScopeData)):
-    #         power_dist.append(ADCFactor * Inttimefactor * ((ScopeData[i] - DarkData[i]) / IntensityCal[i]))
-
-    #     return power_dist
 
     def power_value(self, power_dist):
         """Calculate total power in µW/cm² performing an integration in the power distribution"""
@@ -173,19 +142,6 @@ class Avantes:
         
         return power_list
 
-    # def measure_power(self, num_measurements , integration_time , min_wavelength , max_wavelength , averages=1, scans=1):
-    #     """Perform measurements and get the power values in a list"""
-           
-    #     power_list = []
-
-    #     for measure in range (num_measurements):
-    #         self.count_distribution(integration_time, min_wavelength, max_wavelength, averages, scans)
-    #         power_distribution = self.power_distribution()
-    #         power_val = self.power_value(power_distribution)
-    #         power_list.append(power_val)
-        
-    #     return power_list
-
     def disconnect(self):
         AVS_Deactivate(self.dev_handle)
         self.app.quit()
@@ -199,23 +155,105 @@ class Avantes:
         plt.grid(True)
         plt.show()
 
+    def power_distribution_NEW(self, integration_time , min_wavelength , max_wavelength):
+        """Convert raw counts (Count / nm) to µW/(cm²·nm) using this formula
+        
+        ScopeData(i)   =  Measured A/D Counts at pixel i (AVS_GetScopeData) 
+        DarkData(i)     =  Dark data at pixel i, saved in application software 
+        IntensityCal(i) =  m_Irradiance.m_IntensityCalib.m_aCalibConvers[i] 
+        CalInttime      =  m_Irradiance.m_IntensityCalib.m_CalInttime 
+        CurInttime      =  Integration time in measurement (used in the PrepareMeasurement structure) 
+
+        Inttimefactor = (CalInttime/CurInttime) 
+        
+        Irradiance Intensity =  ADCFactor * Inttimefactor * ((ScopeData(i) - DarkData(i))/IntensityCal(i)) """
+
+        self.count_distribution(integration_time, min_wavelength, max_wavelength)
+
+        ADCFactor = 0.0025
+
+        calib = np.ctypeslib.as_array(self.calibration_factors)
+        calib_convers = calib[0:2048]
+        IntensityCal = calib_convers[self.mask_wavelenght]
+
+        Inttimefactor = self.cal_integration_time / self.current_integration_time
+
+        # DarkData is the count distribution with the ilumination off
+        DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData_20.npy")
+        DarkData = DarkData_total[self.mask_wavelenght]
+
+        ScopeData = self.spectraldata_masked
+
+        power_dist = []
+
+        for i in range (len(ScopeData)):
+            power_dist.append(ADCFactor * Inttimefactor * ((ScopeData[i] - DarkData[i]) / IntensityCal[i]))
+
+        return np.array(power_dist), self.wavelength_masked
+    
+    def gaussian(self, x, A, mu, sigma):
+        return A * np.exp(-(x - mu)**2 / (2 * sigma**2))
+    
+    def measure(self, integration_time):
+
+        power, wavelengths = self.power_distribution_NEW(integration_time, 300, 900)
+
+        # Get emission peak (wavelength corresponding to max power)
+        max_idx = np.argmax(power)
+        emission_peak = wavelengths[max_idx]
+
+        # Fit a Gaussian to the data
+        initial_guess = [max(power), emission_peak, 10]
+        try:
+            popt, _ = curve_fit(self.gaussian, wavelengths, power, p0=initial_guess)
+            A_fit, mu, sigma = popt
+        except RuntimeError:
+            raise RuntimeError("Gaussian fit failed. Check input data.")
+
+        # Calculate spectrum range
+        minWL = mu - 3*sigma
+        maxWL = mu + 3*sigma
+
+        # Mask the values within the spectrum range
+        mask = (wavelengths >= minWL) & (wavelengths <= maxWL)
+        wavelengths_within_range = wavelengths[mask]
+        power_within_range = power[mask]
+
+        # Integrate the power within the spectrum range
+        integrated_power = simps(power_within_range, wavelengths_within_range)
+
+        return {
+            'emissionPeak': emission_peak,
+            'mu': mu,
+            'sigma': sigma,
+            'minWL': minWL,
+            'maxWL': maxWL,
+            'power': integrated_power
+        }
+    
+
+    
+
+
 if __name__ == "__main__":
 
-    ### CREATE DARKDATA 
+    # ## CREATE DARKDATA 
     # spectrometer = Avantes()
     # spectrometer.initialize_device()
     # spectrometer.count_distribution(30,300,800)
     # dark_data = spectrometer.spectraldata_total
-    # np.save("DarkData.npy", dark_data)
+    # np.save("DarkData_20.npy", dark_data)
     # spectrometer.disconnect()
 
     spectrometer = Avantes()
     spectrometer.initialize_device()
-    int_time = [20,18]
-    for i in int_time:
-        power = spectrometer.measure_power(3,i,400,540)
-        print('power for int time {}: {}'.format(i,power))
-        time.sleep(1)
+    # int_time = [20]
+    # for i in int_time:
+    #     power = spectrometer.measure_power(3,i,400,540)
+    #     print('power for int time {}: {}'.format(i,power))
+    #     time.sleep(1)
+    data = spectrometer.measure(20)
+    print(data)
     
 
     spectrometer.disconnect()
