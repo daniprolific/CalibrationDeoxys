@@ -6,7 +6,7 @@ from pykachu.scripts.PikachuJSONBuilder import *
 from touch_sensor.touch_sensor_class import TouchSensor
 import statistics
 import numpy as np
-
+from airtable.airtable_class import AirtableCalibrationUploader
 import time
 
 class RobotController:
@@ -55,8 +55,11 @@ class RobotController:
         self.heights = [753.07, 752.56, 753.28]
         self.max_z = 753.0
         self.positions_get_heights = [[-364.0, 104.2], [-265.0, 104.2], [-364.0, 181.0]]
+        self.color_sequence = None
 
         # DATA AIRTABLE
+        self.API_KEY = 'patzZ4bX6yRFRauUE.95471454dcbbd994fa31bf3f9292bb93f64d5b8a6f3113558e17e7873e8e76d4'
+        self.BASE_ID = 'appjxfjyEex8LeD0Q'
         self.measurements = []
         self.deoxys_info = []
 
@@ -161,61 +164,6 @@ class RobotController:
             0.00
             ]) ,self.linear_velocity, self.linear_acceleration)
         return "Robot moved {}mm in y".format(displacement)
-    
-    # def calibration(self, orientation, height):
-    #     self.measurements = []
-
-    #     # CONNECT PIKACHU
-    #     pikachu = Pikachu("COM7")
-    #     pikachu.connect()
-    #     pikachu.set_illumination_state(True)
-
-    #     # CREATE WELL SEQUENCE
-    #     letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-    #     values = [f"{letter}{i}" for letter in letters for i in range(1, 13)]
-    #     well = {i: values[i] for i in range(len(values))}   
-
-    #     self.well_adu = self.MAX_INTENSITY
-    #     self.wavelength = self.BLUE_465NM
-    #     # self.measurements.append({'Wavelength': self.wavelength})
-
-    #     for y in range(self.y_leds):
-    #         for x in range(self.x_leds):
-    #             wellid = x + 12*y
-
-    #             # TURN ON PIKACHU
-    #             pikachu.set_group_intensity(well[wellid],self.wavelength,self.well_adu)
-
-    #             # MOVE ROBOT
-    #             self.robot.movel([ 
-    #                 orientation[0] + 9*x, 
-    #                 orientation[1] + 9*y, 
-    #                 height, 
-    #                 0.00, 
-    #                 0.00, 
-    #                 0.00
-    #             ] ,self.linear_velocity, self.linear_acceleration)
-    #             time.sleep(1)
-
-    #             # MEASURE SPECTROMETER
-    #             power_list = self.spectrometer.measure_power(self.num_measurements,self.integration_time,433, 491)
-    #             mean_power = sum(power_list) / len(power_list)
-    #             std_dev = statistics.stdev(power_list)
-
-    #             time.sleep(0.3)
-
-    #             #TURN OFF PIKACHU
-    #             pikachu.set_group_intensity(well[wellid],self.wavelength,0)
-
-                
-               
-    #             info = {'WellID': well[wellid],'MaxPD': mean_power, 'SDMaxPD': std_dev, 'nMaxPDMeasurements': self.num_measurements}
-
-    #             self.measurements.append(info)
-
-    #             time.sleep(0.3)
-    #     print(self.measurements)
-    #     return "Calibration Completed"
     
     def get_heights(self):
         """
@@ -433,18 +381,25 @@ class RobotController:
 
         # CONNECT PIKACHU
         pikachu = Pikachu(self.controller, self.access_token)
+        pikachu.Mute()
+        dev_id = pikachu.IlluminatorId()
+
+        # UPDATA DEOXYS_INFO
+        self.deoxys_info.append({'DevID': dev_id})
+        self.deoxys_info.append({'SensorSerial': self.sensor_serial})
 
         # CREATE WELL SEQUENCE
         letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
         values = [f"{letter}{i}" for letter in letters for i in range(1, 13)]
 
         well_sequence = {i: values[i] for i in range(len(values))}   
-        color_sequence = [465, 630]
+        self.color_sequence = [465, 630, 780]
         adu_sequence = [4095]
 
-        int_time = {'465': {'1024':100, '2048':50, '4095':20}, '630': {'1024':500, '2048':270, '4095':150}, '780': {'1024':500, '2048':270, '4095':150}}
+        int_time = {'465': {'1024':100, '2048':50, '4095':20}, '630': {'1024':500, '2048':270, '4095':150}, '780': {'1024':800, '2048':700, '4095':600}}
 
-        self.CreateIluminationPlan(pikachu, well_sequence, color_sequence, adu_sequence)
+        pikachu.StopIllumination()
+        self.CreateIluminationPlan(pikachu, well_sequence, self.color_sequence, adu_sequence)
         pikachu.StartIllumination()
 
         for y in range(self.y_leds):
@@ -464,22 +419,69 @@ class RobotController:
                 ] ,self.linear_velocity, self.linear_acceleration)
                 time.sleep(0.2)
 
-                for color in color_sequence:
+                for color in self.color_sequence:
                     for adu in adu_sequence:
                         pikachu.AdvanceIllumination()
                         time.sleep(0.2)
 
                         # MEASURE SPECTROMETER
                         data = self.spectrometer.measure(int_time[str(color)][str(adu)])
-                        data = {'WellID': well_sequence[wellid], **data}
+                        data = { 'Wavelength': color, 'wellID': well_sequence[wellid], 'adu': adu, **data}
                         self.measurements.append(data)
+
+                        #measurement = [{ 'Wavelength': color, 'wellID': wellid, 'adu': adu, 'Power': integrated_power, 'peakWL': emission_peak,  'centerWL': mu, 'SD': sigma,  'minWL': minWL,  'maxWL': maxWL,},
+                        # { 'Wavelength': color, 'wellID': wellid, 'adu': adu, 'Power': integrated_power, 'peakWL': emission_peak,  'centerWL': mu, 'SD': sigma,  'minWL': minWL,  'maxWL': maxWL,},... ]
 
         print(self.measurements)
         pikachu.StopIllumination()
-        return "Calibration Completed"        
+        return "Calibration Completed"
+
+    def organize_measurements(self, measurements):
+        '''
+        Organize measurements into different wavelengths
+
+        Returns:
+
+        - {'465':[{'Wavelength': 465},{....},{....}], '630':[{'Wavelength': 630},{....},{....}]}
+        '''
+        organized_measurements = {}
+
+        # First, find all unique wavelengths from measurements
+        wavelengths = set(m['Wavelength'] for m in measurements)
+
+        # Initialize the structure
+        for wavelength in wavelengths:
+            organized_measurements[wavelength] = [{'Wavelength': wavelength}]
+
+        # Fill the structure
+        for m in measurements:
+            wavelength = m['Wavelength']
+            entry = {k: v for k, v in m.items() if k != 'Wavelength'}
+            organized_measurements[wavelength].append(entry)
+        
+        return organized_measurements        
 
     
     def get_data(self):
         return self.deoxys_info, self.measurements
+    
+    def upload_airtable(self, deoxys_info, organized_measurements):
+        uploader = AirtableCalibrationUploader(
+        api_key=self.API_KEY,
+        base_id=self.BASE_ID,
+        )
+
+        uploader.upload_info(deoxys_info)
+
+        for color in self.color_sequence:
+            result = uploader.upload_measurements(organized_measurements[color])
+            print(result)
+
+            if result:
+                print("Data uploaded successfully!")
+            else:
+                print("Upload failed")
+
+
 
     

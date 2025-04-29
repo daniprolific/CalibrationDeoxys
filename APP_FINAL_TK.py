@@ -89,9 +89,6 @@ class RobotGUI:
 
 
 
-
-
-
     def go_home(self):
         message = self.robot.home()
         messagebox.showinfo("Home", message)
@@ -186,44 +183,44 @@ class RobotGUI:
             return
         message = self.robot.calibration_final_cloud(self.orientation)
         self.robot.home()
+        self.robot.deoxys_info.append({'Operator': name})
+
+        # UPLOAD AIRTABLE
+        deoxys_info, measurements = self.robot.get_data()
+        organized_measurements = self.robot.organize_measurements(measurements)
+        self.robot.upload_airtable(deoxys_info, organized_measurements)
+
         messagebox.showwarning("Calibration", message)
 
     def plot_calibration_results(self):
         deoxys_info, measurements = self.robot.get_data()
+        organized_measurements = self.robot.organize_measurements(measurements)
+
         
-        if not measurements:
+        if not organized_measurements:
             messagebox.showwarning("No Data", "Please run calibration to plot the data")
             return
 
-        # Create a new window using the root, not self
-        table_window = tk.Toplevel(self.root)
-        table_window.title("Calibration Results")
+        for wavelength, data_list in organized_measurements.items():
+            # Create a new window per wavelength
+            table_window = tk.Toplevel(self.root)
+            table_window.title(f"Calibration Results - {wavelength} nm")
 
-        # Table headings
-        ttk.Label(table_window, text="WellID", font=("Arial", 12, "bold")).grid(row=0, column=0, padx=10, pady=5)
-        ttk.Label(table_window, text="MaxPD", font=("Arial", 12, "bold")).grid(row=0, column=1, padx=10, pady=5)
+            # Extract the column names from the first data entry (after 'Wavelength' dictionary)
+            if len(data_list) < 2:
+                continue  # skip if there are no measurements
+            column_names = list(data_list[1].keys())  # Take keys from the first measurement (after {'Wavelength': ...})
 
-        # Fill table with data
-        for i, entry in enumerate(measurements):
-            ttk.Label(table_window, text=entry['WellID']).grid(row=i+1, column=0, padx=10, pady=2)
-            ttk.Label(table_window, text=str(entry['MaxPD'])).grid(row=i+1, column=1, padx=10, pady=2)
+            # Create table headers
+            for col_idx, col_name in enumerate(column_names):
+                ttk.Label(table_window, text=col_name, font=("Arial", 12, "bold")).grid(row=0, column=col_idx, padx=10, pady=5)
 
-        # Save measurements to CSV
-        save_dir = r"C:\Users\madel\Desktop\Calibration\Calibration_measurements"
-        os.makedirs(save_dir, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"calibration_results_{timestamp}.csv"
-        filepath = os.path.join(save_dir, filename)
+            # Fill table with data
+            for row_idx, entry in enumerate(data_list[1:], start=1):  # Skip the first dictionary (which is just 'Wavelength')
+                for col_idx, col_name in enumerate(column_names):
+                    value = entry.get(col_name, "")
+                    ttk.Label(table_window, text=str(value)).grid(row=row_idx, column=col_idx, padx=10, pady=2)
 
-        try:
-            with open(filepath, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(["WellID", "MaxPD"])
-                for entry in measurements:
-                    writer.writerow([entry['WellID'], entry['MaxPD']])
-            print(f"Calibration results saved to {filepath}")
-        except Exception as e:
-            messagebox.showerror("Save Error", f"Failed to save CSV: {e}")
 
 
 

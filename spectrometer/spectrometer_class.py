@@ -196,7 +196,7 @@ class Avantes:
     
     def measure(self, integration_time):
 
-        power, wavelengths = self.power_distribution_NEW(integration_time, 300, 900)
+        power, wavelengths = self.power_distribution_NEW(integration_time, 350, 850)
 
         # Get emission peak (wavelength corresponding to max power)
         max_idx = np.argmax(power)
@@ -207,29 +207,40 @@ class Avantes:
         try:
             popt, _ = curve_fit(self.gaussian, wavelengths, power, p0=initial_guess)
             A_fit, mu, sigma = popt
+
+            # Calculate spectrum range
+            minWL = mu - 3*sigma
+            maxWL = mu + 3*sigma
+
+            # Mask the values within the spectrum range
+            mask = (wavelengths >= minWL) & (wavelengths <= maxWL)
+            wavelengths_within_range = wavelengths[mask]
+            power_within_range = power[mask]
+
+            # Integrate the power within the spectrum range
+            integrated_power = simps(power_within_range, wavelengths_within_range)
+
+            return {
+                'Power': integrated_power,
+                'peakWL': emission_peak,
+                'centerWL': mu,
+                'SD': sigma,
+                'minWL': minWL,
+                'maxWL': maxWL,
+            }
         except RuntimeError:
-            raise RuntimeError("Gaussian fit failed. Check input data.")
+            print("Gaussian fit failed. Check input data.")
 
-        # Calculate spectrum range
-        minWL = mu - 3*sigma
-        maxWL = mu + 3*sigma
+            return {
+                'Power': 0,
+                'peakWL': 0,
+                'centerWL': 0,
+                'SD': 0,
+                'minWL': 0,
+                'maxWL': 0,
+            }
 
-        # Mask the values within the spectrum range
-        mask = (wavelengths >= minWL) & (wavelengths <= maxWL)
-        wavelengths_within_range = wavelengths[mask]
-        power_within_range = power[mask]
-
-        # Integrate the power within the spectrum range
-        integrated_power = simps(power_within_range, wavelengths_within_range)
-
-        return {
-            'emissionPeak': emission_peak,
-            'mu': mu,
-            'sigma': sigma,
-            'minWL': minWL,
-            'maxWL': maxWL,
-            'power': integrated_power
-        }
+        
     
 
     
@@ -247,12 +258,14 @@ if __name__ == "__main__":
 
     spectrometer = Avantes()
     spectrometer.initialize_device()
-    # int_time = [20]
+
+    # int_time = [500,800,1000,1500,2000,3900,4500]
     # for i in int_time:
-    #     power = spectrometer.measure_power(3,i,400,540)
+    #     power = spectrometer.measure_power(3,i,740,820)
     #     print('power for int time {}: {}'.format(i,power))
     #     time.sleep(1)
-    data = spectrometer.measure(20)
+
+    data = spectrometer.measure(600)
     print(data)
     
 
