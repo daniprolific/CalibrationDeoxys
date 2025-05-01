@@ -195,6 +195,9 @@ class Avantes:
         return A * np.exp(-(x - mu)**2 / (2 * sigma**2))
     
     def measure(self, integration_time):
+        '''
+        Power value and other parameters with Gaussian fit
+        '''
 
         power, wavelengths = self.power_distribution_NEW(integration_time, 350, 850)
 
@@ -232,12 +235,12 @@ class Avantes:
             print("Gaussian fit failed. Check input data.")
 
             return {
-                'Power': 0,
-                'peakWL': 0,
-                'centerWL': 0,
-                'SD': 0,
-                'minWL': 0,
-                'maxWL': 0,
+                'Power': -1,
+                'peakWL': -1,
+                'centerWL': -1,
+                'SD': -1,
+                'minWL': -1,
+                'maxWL': -1,
             }
 
         

@@ -50,18 +50,27 @@ class RobotController:
 
         # TOUCH SENSOR
         self.touch_sensor = TouchSensor('COM8')
-
         # self.heights = None
         self.heights = [753.07, 752.56, 753.28]
         self.max_z = 753.0
         self.positions_get_heights = [[-364.0, 104.2], [-265.0, 104.2], [-364.0, 181.0]]
-        self.color_sequence = None
 
         # DATA AIRTABLE
         self.API_KEY = 'patzZ4bX6yRFRauUE.95471454dcbbd994fa31bf3f9292bb93f64d5b8a6f3113558e17e7873e8e76d4'
         self.BASE_ID = 'appjxfjyEex8LeD0Q'
         self.measurements = []
         self.deoxys_info = []
+
+
+        # CALIBRATION DATA
+        # self.letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        # self.numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        self.letters = ['A', 'B']
+        self.numbers = [1, 2, 3, 4]
+        self.color_sequence = [465, 630]
+        self.adu_sequence = [4095]
+        self.int_time = {'465': {'1024':100, '2048':50, '4095':20}, '630': {'1024':500, '2048':270, '4095':150}, '780': {'1024':800, '2048':700, '4095':600}}
+
 
     def home(self):
         self.robot.movej(self.j_Home, self.joint_velocity, self.joint_acceleration)
@@ -77,6 +86,12 @@ class RobotController:
 
     
     def CreateIluminationPlan(self, pikachu: Pikachu, well_sequence, color_sequence, adu_sequence):
+        '''
+        well_sequnce = [0: "A1", 1: "A2", 2: "A3", ...]
+        color_sequnce = [465, 630, 780]
+        adu_sequence = [4095, 2048, 1024]
+
+        '''
         plan = IlluminationPlanJSON()
         plan.set_plan_id(1)
 
@@ -96,6 +111,29 @@ class RobotController:
                         plan.add_condition_to_last_stage(groups=[well_sequence[wellid]], color=color, adu=adu)
                     
         pikachu.UploadJSONString(plan.to_json())
+
+    def create_ilumination_plan(self, pikachu: Pikachu, well_sequence, color_sequence, adu_sequence):
+        '''
+        well_sequnce = ["A1", "A2", "A3", ...]
+        color_sequnce = [465, 630, 780]
+        adu_sequence = [4095, 2048, 1024]
+
+        '''
+        plan = IlluminationPlanJSON()
+        plan.set_plan_id(1)
+
+        # First stage is OFF
+        plan.add_stage(0)
+        plan.add_condition_to_last_stage(groups=['A1'], color=465, adu=0)
+
+        for well in well_sequence:
+            for color in color_sequence:
+                for adu in adu_sequence:
+                    plan.add_stage(0)
+                    plan.add_condition_to_last_stage(groups=[well], color=color, adu=adu)
+
+        pikachu.UploadJSONString(plan.to_json())
+
 
     def initial_position(self):
 
@@ -193,15 +231,11 @@ class RobotController:
                 detected = self.touch_sensor.get_status()
 
                 if detected == 1:
-                    print('STOP, object detected')
                     break
                 else:
                     continue
 
-            print('Position',self.get_position())
             height = self.get_position()[2]
-            print('Height detected:', height)
-
             self.robot.movel(([ 
                     pos[0],
                     pos[1], 
@@ -229,12 +263,11 @@ class RobotController:
                 detected = self.touch_sensor.get_status()
 
                 if detected == 1:
-                    print('STOP, object detected')
                     break
                 else:
                     continue
             final_position = self.get_position()
-            self.heights.append(final_position[2] + 1.2)  # CHANGE THIS TO GO LOWER
+            self.heights.append(final_position[2] + 1.2)  # CHANGE THIS TO GO LOWER   1.2
         print('heights:',self.heights)
 
         return "Heights saved"
@@ -243,15 +276,10 @@ class RobotController:
         """
         Estimate the height at a new (x, y) position on a plane defined by 3 known (x, y, z) points.
 
-        Parameters:
-        - xy_coords: List of 3 (x, y) coordinates (e.g., [[x1, y1], [x2, y2], [x3, y3]])
-        - heights: List of 3 z (height) values corresponding to each coordinate
-        - new_xy: [x, y] representing the new point to evaluate
-
         Returns:
         - The estimated height (z value) at the new (x, y)
         """
-        positions_estimate_height = [[x, y + 70.3] for x, y in self.positions_get_heights]
+        positions_estimate_height = [[x, y + 65] for x, y in self.positions_get_heights]  # y + 65 to  get position of spectrometer
         # Create matrix A and vector b to solve Ax = h
         A = np.array([[x, y, 1] for x, y in positions_estimate_height])
         h = np.array(self.heights)
@@ -265,60 +293,66 @@ class RobotController:
         z_new = a * x_new + b * y_new + c
         return z_new
     
-    def calibration_new(self, orientation):
+    def create_well_sequence(self, letters, numbers):
+        '''Create well sequnce from  letters and numbers
+        
+            well_sequence = ['A1', 'A2', 'A3',...]
+        '''
+        well_sequence =  [f"{letter}{number}" for letter in letters for number in numbers]
+        return well_sequence
+
+    
+    def calibration_final_cloud(self, orientation):
         self.measurements = []
 
         # CONNECT PIKACHU
-        pikachu = Pikachu("COM7")
-        pikachu.connect()
-        pikachu.set_illumination_state(True)
+        pikachu = Pikachu(self.controller, self.access_token)
+        pikachu.Mute()
+        dev_id = pikachu.IlluminatorId()
 
-        # CREATE WELL SEQUENCE
-        letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-        values = [f"{letter}{i}" for letter in letters for i in range(1, 13)]
-        well = {i: values[i] for i in range(len(values))}   
+        # UPDATA DEOXYS_INFO
+        self.deoxys_info.append({'DevID': dev_id})
+        self.deoxys_info.append({'SensorSerial': self.sensor_serial})
 
-        self.well_adu = self.MAX_INTENSITY
-        self.wavelength = self.BLUE_465NM
-        # self.measurements.append({'Wavelength': self.wavelength})
+        # CREATE WELL SEQUENCE AND ILUMINATION PLAN
+        well_sequence = self.create_well_sequence(self.letters, self.numbers)
+        pikachu.StopIllumination()
+        self.create_ilumination_plan(pikachu, well_sequence, self.color_sequence, self.adu_sequence)
+        pikachu.StartIllumination()
 
-        for y in range(self.y_leds):
-            for x in range(self.x_leds):
+        wellid = 0
+        y_value = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7}
+        for y in self.letters:
+            for x in self.numbers:
 
-                wellid = x + 12*y
-                height = self.estimate_height([orientation[0] + 9*x, orientation[1] + 9*y])
-
-                # TURN ON PIKACHU
-                pikachu.set_group_intensity(well[wellid],self.wavelength,self.well_adu)
-
+                height = self.estimate_height([orientation[0] + 9*(x-1), orientation[1] + 9*(y_value[y])])
                 # MOVE ROBOT
                 self.robot.movel([ 
-                    orientation[0] + 9*x, 
-                    orientation[1] + 9*y, 
+                    orientation[0] + 9*(x-1), 
+                    orientation[1] + 9*(y_value[y]), 
                     height, 
                     0.00, 
                     0.00, 
                     0.00
                 ] ,self.linear_velocity, self.linear_acceleration)
-                time.sleep(1)
+                time.sleep(0.2)
 
-                # MEASURE SPECTROMETER
-                power_list = self.spectrometer.measure_power(self.num_measurements,self.integration_time,433, 491)
-                mean_power = sum(power_list) / len(power_list)
-                std_dev = statistics.stdev(power_list)
+                for color in self.color_sequence:
+                    for adu in self.adu_sequence:
+                        
+                        pikachu.AdvanceIllumination()
+                        time.sleep(0.2)
 
-                time.sleep(0.3)
-
-                #TURN OFF PIKACHU
-                pikachu.set_group_intensity(well[wellid],self.wavelength,0)
+                        # MEASURE SPECTROMETER
+                        data = self.spectrometer.measure(self.int_time[str(color)][str(adu)])
+                        data = { 'Wavelength': color, 'wellID': well_sequence[wellid], 'adu': adu, **data}
+                        self.measurements.append(data)
                 
-               
-                info = {'WellID': well[wellid],'MaxPD': mean_power, 'SDMaxPD': std_dev, 'nMaxPDMeasurements': self.num_measurements}
+                wellid = wellid + 1
 
-                self.measurements.append(info)
+                
 
-                time.sleep(0.3)
-        print(self.measurements)
+        pikachu.StopIllumination()
         return "Calibration Completed"
     
     def calibration_final_serial(self, orientation):
@@ -329,25 +363,23 @@ class RobotController:
         pikachu.connect()
         pikachu.set_illumination_state(True)
 
+        # UPDATA DEOXYS_INFO
+        self.deoxys_info.append({'DevID': "-"})
+        self.deoxys_info.append({'SensorSerial': self.sensor_serial})
+
         # CREATE WELL SEQUENCE
-        letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-        values = [f"{letter}{i}" for letter in letters for i in range(1, 13)]
-        well = {i: values[i] for i in range(len(values))}   
+        well_sequence = self.create_well_sequence(self.letters, self.numbers) 
 
-        wavelength_sequence = [465, 630]
-        adu_sequence = [4095]
-        int_time = {'465': {'1024':100, '2048':50, '4095':20}, '630': {'1024':500, '2048':270, '4095':150}, '780': {'1024':500, '2048':270, '4095':150}}
+        wellid = 0
+        y_value = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7}
+        for y in self.letters:
+            for x in self.numbers:
 
-        for y in range(self.y_leds):
-            for x in range(self.x_leds):
-
-                wellid = x + 12*y
-                height = self.estimate_height([orientation[0] + 9*x, orientation[1] + 9*y])
-
+                height = self.estimate_height([orientation[0] + 9*(x-1), orientation[1] + 9*(y_value[y])])
                 # MOVE ROBOT
                 self.robot.movel([ 
-                    orientation[0] + 9*x, 
-                    orientation[1] + 9*y, 
+                    orientation[0] + 9*(x-1), 
+                    orientation[1] + 9*(y_value[y]), 
                     height, 
                     0.00, 
                     0.00, 
@@ -355,28 +387,80 @@ class RobotController:
                 ] ,self.linear_velocity, self.linear_acceleration)
                 time.sleep(0.2)
 
-                for wavelength in wavelength_sequence:
-                    for adu in adu_sequence:
-
-                        # TURN ON PIKACHU
-                        pikachu.set_group_intensity(well[wellid],wavelength,adu)
-                        time.sleep(0.1)
+                for color in self.color_sequence:
+                    for adu in self.adu_sequence:
+                        #TURN ON DEOXYS
+                        pikachu.set_group_intensity(well_sequence[wellid],color,adu)
+                        time.sleep(0.2)
 
                         # MEASURE SPECTROMETER
-                        data = self.spectrometer.measure(int_time[str(wavelength)][str(adu)])
-                        data = {'WellID': well[wellid], **data}
-
-                        time.sleep(0.5)
-
-                        #TURN OFF PIKACHU
-                        pikachu.set_group_intensity(well[wellid],wavelength,0)
-
+                        data = self.spectrometer.measure(self.int_time[str(color)][str(adu)])
+                        data = { 'Wavelength': color, 'wellID': well_sequence[wellid], 'adu': adu, **data}
                         self.measurements.append(data)
+                        time.sleep(0.2)
+                        #TURN OFF DEOXYS
+                        pikachu.set_group_intensity(well_sequence[wellid],color,0)
+                
+                wellid = wellid + 1
 
-        print(self.measurements)
         return "Calibration Completed"        
 
-    def calibration_final_cloud(self, orientation):
+    def modified_calibration(self, orientation, letters, numbers, color_sequence, adu_sequence):
+        self.measurements = []
+
+        # CONNECT PIKACHU
+        pikachu = Pikachu(self.controller, self.access_token)
+        pikachu.Mute()
+        dev_id = pikachu.IlluminatorId()
+
+        # UPDATA DEOXYS_INFO
+        self.deoxys_info.append({'DevID': dev_id})
+        self.deoxys_info.append({'SensorSerial': self.sensor_serial})
+
+        # CREATE WELL SEQUENCE AND ILUMINATION PLAN
+        well_sequence = self.create_well_sequence(letters, numbers)
+        print('Well sequence:',well_sequence)
+        pikachu.StopIllumination()
+        self.create_ilumination_plan(pikachu, well_sequence, color_sequence, adu_sequence)
+        pikachu.StartIllumination()
+
+        wellid = 0
+        y_value = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7}
+        for y in letters:
+            for x in numbers:
+
+                height = self.estimate_height([orientation[0] + 9*(x-1), 
+                                               orientation[1] + 9*(y_value[y])])
+                # MOVE ROBOT
+                self.robot.movel([ 
+                    orientation[0] + 9*(x-1), 
+                    orientation[1] + 9*(y_value[y]), 
+                    height, 
+                    0.00, 
+                    0.00, 
+                    0.00
+                ] ,self.linear_velocity, self.linear_acceleration)
+                time.sleep(0.2)
+
+                for color in color_sequence:
+                    for adu in adu_sequence:
+                        
+                        pikachu.AdvanceIllumination()
+                        time.sleep(0.2)
+
+                        # MEASURE SPECTROMETER
+                        data = self.spectrometer.measure(self.int_time[str(color)][str(adu)])
+                        print(wellid)
+                        data = { 'Wavelength': color, 'wellID': well_sequence[wellid], 'adu': adu, **data}
+                        self.measurements.append(data)
+
+                wellid = wellid + 1
+
+        pikachu.StopIllumination()
+        return "Calibration Completed"
+
+
+    def old_calibration(self, orientation):
         self.measurements = []
 
         # CONNECT PIKACHU
@@ -429,10 +513,6 @@ class RobotController:
                         data = { 'Wavelength': color, 'wellID': well_sequence[wellid], 'adu': adu, **data}
                         self.measurements.append(data)
 
-                        #measurement = [{ 'Wavelength': color, 'wellID': wellid, 'adu': adu, 'Power': integrated_power, 'peakWL': emission_peak,  'centerWL': mu, 'SD': sigma,  'minWL': minWL,  'maxWL': maxWL,},
-                        # { 'Wavelength': color, 'wellID': wellid, 'adu': adu, 'Power': integrated_power, 'peakWL': emission_peak,  'centerWL': mu, 'SD': sigma,  'minWL': minWL,  'maxWL': maxWL,},... ]
-
-        print(self.measurements)
         pikachu.StopIllumination()
         return "Calibration Completed"
 
@@ -473,9 +553,9 @@ class RobotController:
 
         uploader.upload_info(deoxys_info)
 
+        # UPLOAD EACH COLOR IN SEQUENCE
         for color in self.color_sequence:
             result = uploader.upload_measurements(organized_measurements[color])
-            print(result)
 
             if result:
                 print("Data uploaded successfully!")

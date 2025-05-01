@@ -44,7 +44,7 @@ class RobotController:
         self.joint_acceleration = 30  # deg/s²
         self.j_Home = [-180.0, -175.0, 125, 140, -90, 90]
         # self.ini_position = [-364.0, 173.2, 753.5, 0.00, 0.00, 0.00] 
-        self.ini_position = [-364.2, 173.4, 753.5, 0.00, 0.00, 0.00]  #-364.2, 173.4
+        self.ini_position = [-364.0, 104.2 + 65, 750, 0.00, 0.00, 0.00]  #-364.2, 173.4
 
         # DATA AIRTABLE
         self.measurements = []
