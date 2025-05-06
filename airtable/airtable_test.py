@@ -5,7 +5,6 @@ API_KEY = 'patzZ4bX6yRFRauUE.95471454dcbbd994fa31bf3f9292bb93f64d5b8a6f3113558e1
 BASE_ID = 'appjxfjyEex8LeD0Q'
 
 deoxys_info = [{'dev_id': "Deox"},
-                {'sensor_serial': "123"},
                 {'Operator': "Dan"}
                 ]
  

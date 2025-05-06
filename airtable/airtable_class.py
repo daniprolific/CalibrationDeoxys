@@ -27,13 +27,12 @@ class AirtableCalibrationUploader:
 
     def upload_info(self, deoxys_info):
         '''
-        deoxys_info = [{'dev_id': "Deox"}, {'sensor_serial': "123"}, {'operator': "Dan"}]
+        deoxys_info = [{'dev_id': "Deox"}, {'operator': "Dan"}]
         '''
 
         dev_cal_record = self.create_record('DevCalibrations', {
             'DevID': deoxys_info[0]['DevID'],
-            'Operator': deoxys_info[2]['Operator'],
-            'SensorSerial': deoxys_info[1]['SensorSerial']
+            'Operator': deoxys_info[2]['Operator']
         })
 
         if not dev_cal_record:
