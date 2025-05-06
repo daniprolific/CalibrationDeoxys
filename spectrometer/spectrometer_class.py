@@ -87,6 +87,12 @@ class Avantes:
         self.wavelength_masked = self.wavelength_total[self.mask_wavelenght]
         self.spectraldata_masked = self.spectraldata_total[self.mask_wavelenght]
 
+    def create_dark_data(self):
+        ''' Create Dark Data file'''
+        self.count_distribution(30,300,900)
+        dark_data = self.spectraldata_total
+        np.save("DarkData.npy", dark_data)
+
         
     def power_distribution(self, integration_time , min_wavelength , max_wavelength):
         """Convert raw counts (Count / nm) to µW/(cm²·nm) using this formula
@@ -111,8 +117,13 @@ class Avantes:
 
         Inttimefactor = self.cal_integration_time / self.current_integration_time
 
-        # DarkData is the count distribution with the ilumination off
-        DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData_20.npy")
+        # SPEC NEW
+        DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData.npy")
+
+        # SPEC OLD
+        # DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData_old.npy")
+
+
         DarkData = DarkData_total[self.mask_wavelenght]
 
         ScopeData = self.spectraldata_masked
@@ -178,8 +189,12 @@ class Avantes:
 
         Inttimefactor = self.cal_integration_time / self.current_integration_time
 
-        # DarkData is the count distribution with the ilumination off
-        DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData_20.npy")
+         # SPEC NEW
+        DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData.npy")
+
+        # SPEC OLD
+        # DarkData_total = np.load(r"C:\Users\madel\Desktop\Calibration\Code\Deoxys calibration\spectrometer\DarkData_old.npy")
+
         DarkData = DarkData_total[self.mask_wavelenght]
 
         ScopeData = self.spectraldata_masked
@@ -251,28 +266,26 @@ class Avantes:
 
 if __name__ == "__main__":
 
-    # ## CREATE DARKDATA 
+    ## CREATE DARKDATA 
     # spectrometer = Avantes()
     # spectrometer.initialize_device()
     # spectrometer.count_distribution(30,300,800)
     # dark_data = spectrometer.spectraldata_total
-    # np.save("DarkData_20.npy", dark_data)
+    # np.save("DarkData_old.npy", dark_data)
     # spectrometer.disconnect()
 
     spectrometer = Avantes()
     spectrometer.initialize_device()
+    data = spectrometer.measure(20)
+    print(data)
+    spectrometer.disconnect()
 
     # int_time = [500,800,1000,1500,2000,3900,4500]
     # for i in int_time:
     #     power = spectrometer.measure_power(3,i,740,820)
     #     print('power for int time {}: {}'.format(i,power))
     #     time.sleep(1)
-
-    data = spectrometer.measure(600)
-    print(data)
     
-
-    spectrometer.disconnect()
 
 
 
